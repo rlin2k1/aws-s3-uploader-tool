@@ -1,0 +1,31 @@
+<html>
+    <head>
+            <title>Poshmark Upload File</title>
+            <link rel="shortcut icon" type="image/jpg" href="../image_assets/favicon.jpg"/>
+            <link rel="stylesheet" type="text/css" href="index.css" media="screen" />
+    </head>
+
+    <body>
+            <div class="box">
+                    <div>
+                        <img src="../image_assets/poshmark_logo.png" id="poshlogo"/>
+                    </div>
+                    <br>
+                    <div>
+                        <img src="../image_assets/marketing_logo.png" id="marketlogo"/>
+                    </div>
+                    <br>
+
+                    <div>
+                        <form enctype="multipart/form-data" action="http://localhost:8080/upload" method="post">
+                            <div id="test">
+                                <input type="file" name="uploadfile"/>
+                            </div>
+                            <input type="hidden" name="token" value="{{.}}"/>
+                            <br>
+                            <input type="submit" value="Upload File" />
+                        </form>
+                    </div>
+            </div>
+    </body>
+</html>
