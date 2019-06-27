@@ -12,124 +12,221 @@ Date Created:
 package main
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"regexp"
+	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	mapset "github.com/deckarep/golang-set"
 )
 
-var templates = template.Must(template.ParseFiles("edit.html", "view.html")) //MUST Panics if ParseFiles returns ERROR
-var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")     //MUST Will Panic If FAILS
+//var templates = template.Must(template.ParseFiles("index.html"))         //MUST Panics if ParseFiles returns ERROR
+var validPath = regexp.MustCompile("/.(gif|jpg|jpeg|tiff|png|txt|doc|docx)$/") //CHECK IF IMAGE
 
 type Page struct {
-	Title string
-	Body  []byte
+	CurrentFolder  string
+	FolderContents []string
+	FileContents   []string
 }
 
-func (p *Page) save() error {
-	filename := p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0600)
-}
+// UploadFileToS3 saves a file to aws bucket and returns the url to // the file and an error if there's any
+func UploadFileToS3(s *session.Session, file multipart.File, fileHeader *multipart.FileHeader, folderName string) (string, error) {
+	// get the file size and read
+	// the file content into a buffer
+	size := fileHeader.Size
+	buffer := make([]byte, size)
+	file.Read(buffer)
+	if folderName == "Root" {
+		folderName = ""
+	}
+	// create a unique file name for the file
+	tempFileName := folderName + "/" + fileHeader.Filename
 
-func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	body, err := ioutil.ReadFile(filename)
+	// config settings: this is where you choose the bucket,
+	// filename, content-type and storage class of the file
+	// you're uploading
+	_, err := s3.New(s).PutObject(&s3.PutObjectInput{
+		Bucket:               aws.String("bucket-upload-roy1"),
+		Key:                  aws.String(tempFileName),
+		ACL:                  aws.String("public-read"), // could be private if you want it to be access by only authorized users
+		Body:                 bytes.NewReader(buffer),
+		ContentLength:        aws.Int64(int64(size)),
+		ContentType:          aws.String(http.DetectContentType(buffer)),
+		ContentDisposition:   aws.String("attachment"),
+		ServerSideEncryption: aws.String("AES256"),
+		StorageClass:         aws.String("INTELLIGENT_TIERING"),
+	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &Page{Title: title, Body: body}, nil
+
+	return tempFileName, err
 }
 
-func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
-	m := validPath.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		http.NotFound(w, r)
-		return "", errors.New("Invalid Page Title")
-	}
-	return m[2], nil
-}
+func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	//t, err := template.ParseFiles(tmpl + ".html")
-	//if err != nil {
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
-	//err = t.Execute(w, p)
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	// Here we will extract the page title from the Request, and call the provided handler 'fn'
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := validPath.FindStringSubmatch(r.URL.Path)
-		if m == nil {
-			http.NotFound(w, r)
+	fmt.Println("method:", r.Method)
+	if r.Method == "GET" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		fmt.Println("CAUGHT")
+	} else if r.Method == "POST" {
+		r.ParseMultipartForm(32 << 20)
+		file, handler, err := r.FormFile("uploadfile")
+		if err != nil {
+			http.Redirect(w, r, "/", http.StatusFound)
+			fmt.Println("CAUGHT")
 			return
 		}
-		fn(w, r, m[2])
-	}
-}
+		defer file.Close()
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
-}
+		// create an AWS session which can be
+		// reused if we're uploading many files
+		s, err := session.NewSession(&aws.Config{
+			Region: aws.String("us-east-2"),
+			Credentials: credentials.NewStaticCredentials(
+				"AKIA2EJR7MOTGUC644N2",                     // id
+				"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
+				""), // token can be left blank for now
+		})
+		svc := s3.New(s)
 
-func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	// title, err := getTitle(w, r)
-	// if err != nil {
-	// 	return
-	// }
-	p, err := loadPage(title)
-	if err != nil {
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
+		bucket := "bucket-upload-roy1"
+
+		resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
+		if err != nil {
+			return
+		}
+
+		set := mapset.NewSet()
+
+		for _, item := range resp.Contents {
+			fmt.Println(*item.Key)
+			if strings.Contains(*item.Key, "/") {
+				directory := strings.Split(*item.Key, "/")[0]
+				if !set.Contains(directory) {
+					fmt.Println("Directory Name:         ", directory)
+					fmt.Println("")
+					set.Add(directory)
+				}
+			}
+		}
+
+		if err != nil {
+			fmt.Fprintf(w, "Could not upload file")
+		}
+
+		fileName, err := UploadFileToS3(s, file, handler, r.FormValue("token"))
+		if err != nil {
+			fmt.Fprintf(w, "Could not upload file")
+		}
+		fmt.Println("Uploaded to Folder:", fileName)
+		fmt.Fprintf(w, "<div>Image Uploaded Successfully: %v</div><h1>[<a href=\"/\">Upload Another File</a>]</h1>", handler.Filename)
+		//UPLOAD ANOTHER IMAGE FROM WIKI
+	} else {
+		http.Error(w, "GET OR POST", http.StatusInternalServerError)
 		return
 	}
-	renderTemplate(w, "view", p)
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	// title, err := getTitle(w, r)
-	// if err != nil {
-	// 	return
-	// }
-	p, err := loadPage(title)
-	if err != nil {
-		p = &Page{Title: title}
-	}
-	renderTemplate(w, "edit", p)
-}
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Path[len("/"):]
+	s := []string{}
+	f := []string{}
+	s1, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-2"),
+		Credentials: credentials.NewStaticCredentials(
+			"AKIA2EJR7MOTGUC644N2",                     // id
+			"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
+			""), // token can be left blank for now
+	})
+	svc := s3.New(s1)
 
-func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	// title, err := getTitle(w, r)
-	// if err != nil {
-	// 	return
-	// }
-	body := r.FormValue("body")                  //Most Important!
-	p := &Page{Title: title, Body: []byte(body)} //Convert body{String} to {byte}
-	err := p.save()
+	bucket := "bucket-upload-roy1"
+
+	resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+
+	set := mapset.NewSet()
+
+	for _, item := range resp.Contents {
+		fmt.Println(*item.Key, *item.Size, filePath)
+		if *item.Size == 0 && strings.Contains(*item.Key, filePath) {
+			newPath := (*item.Key)[len(filePath):]
+			//fmt.Println("Directory Name1:         ", newPath[:strings.IndexByte(newPath, '/')])
+			newPath = strings.Split(newPath, "/")[0] + "/"
+			if !set.Contains(newPath) && newPath != "/" {
+				fmt.Println("Directory Name:         ", newPath)
+				fmt.Println("")
+				set.Add(newPath)
+				s = append(s, newPath[:len(newPath)-1])
+			}
+		} else if strings.Contains(*item.Key, filePath) {
+			newPath := (*item.Key)[len(filePath):]
+			if !strings.Contains(newPath, "/") {
+				f = append(f, newPath)
+			}
+		}
+	}
+	if filePath == "" {
+		filePath = "/"
+	}
+	t, _ := template.ParseFiles("src/index.html")
+	page := &Page{CurrentFolder: filePath, FolderContents: s, FileContents: f}
+	t.Execute(w, page)
+}
+
+func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(32 << 20)
+	fmt.Println("method:", r.Method)
+	s, _ := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-2"),
+		Credentials: credentials.NewStaticCredentials(
+			"AKIA2EJR7MOTGUC644N2",                     // id
+			"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
+			""), // token can be left blank for now
+	})
+	svc := s3.New(s)
+
+	bucket := "bucket-upload-roy1"
+	list := r.Form["int"]
+	fmt.Println(list)
+	// create a unique file name for the file
+
+	for _, item := range list {
+		svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(bucket), Key: aws.String(item)})
+
+		svc.WaitUntilObjectNotExists(&s3.HeadObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(item),
+		})
+	}
+	// config settings: this is where you choose the bucket,
+	// filename, content-type and storage class of the file
+	// you're uploading
+	fmt.Fprintf(w, "<div>Deletion Successful!</div><h1>[<a href=\"/\">Upload A File</a>]</h1>")
 }
 
 func main() {
-	p1 := &Page{Title: "TestPage", Body: []byte("This is a sample Page.")}
-	p1.save()
-	p2, _ := loadPage("TestPage")
-	fmt.Println(string(p2.Body))
+	fmt.Println("Starting Web Server")
 
-	http.HandleFunc("/view/", makeHandler(viewHandler))
-	http.HandleFunc("/edit/", makeHandler(editHandler))
-	http.HandleFunc("/save/", makeHandler(saveHandler))
-	http.HandleFunc("/", handler)
+	http.Handle("/image_assets/", http.StripPrefix("/image_assets/",
+		http.FileServer(http.Dir("image_assets"))))
+	http.Handle("/src/", http.StripPrefix("/src/",
+		http.FileServer(http.Dir("src"))))
+
+	http.HandleFunc("/delete/", deleteHandler)
+	http.HandleFunc("/upload/", uploadHandler)
+	http.HandleFunc("/", rootHandler)
+
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

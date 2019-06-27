@@ -1,29 +1,62 @@
 <html>
     <head>
             <title>Poshmark Upload File</title>
-            <link rel="shortcut icon" type="image/jpg" href="../image_assets/favicon.jpg"/>
-            <link rel="stylesheet" type="text/css" href="index.css" media="screen" />
+            <link rel="shortcut icon" type="image/jpg" href="/image_assets/favicon.png"/>
+            <link rel="stylesheet" type="text/css" href="/src/index.css" media="screen" />
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     </head>
 
     <body>
             <div class="box">
                     <div>
-                        <img src="../image_assets/poshmark_logo.png" id="poshlogo"/>
+                        <img src="/image_assets/poshmark_logo.png" id="poshlogo"/>
                     </div>
                     <br>
                     <div>
-                        <img src="../image_assets/marketing_logo.png" id="marketlogo"/>
+                        <img src="/image_assets/marketing_logo.png" id="marketlogo"/>
                     </div>
                     <br>
+                    <div>
+                        Go To: <button onclick="window.location.href = '/';" class="btn"><i class="fa fa-folder"></i>  ROOT</button>
+                        <br>
+                        <br>
+                        {{$number := .FolderContents}}
+                        {{$letter := .CurrentFolder}}
+                        {{if or .FolderContents .FileContents}}
+                        <div>Showing Folder Contents For {{.CurrentFolder}}:</div>
+                        {{end}}
+                        {{if and (not .FolderContents) (not .FileContents)}}
+                        <div>Folder {{.CurrentFolder}} is Empty!</div>
+                        {{end}}
+                            {{ range $key := $number }}
+                            <p>
+                                <button onclick="window.location.href = 'http://localhost:8080/{{$letter}}/{{$key}}/';" class="btn"><i class="fa fa-folder"></i> {{$key}}</button>
+                                <!-- <input type="checkbox" id="coding" name="interest" value={{$key}}> -->
+                                <!-- <label for="coding"><a href="/{{$key}}">{{$key}}</a></label> -->
+                            </p>
+                            {{ end }}
+                        <form enctype="multipart/form-data" action="http://localhost:8080/delete/" method="post">
+                            <ul>
+                                    {{$altoids := .FileContents}}
+                                    {{ range $key := $altoids}}
+                                    <input type="checkbox" id="coding" name="int" value="{{$letter}}{{$key}}">
+                                    <label for="coding">{{$key}}</label>
+                                    <br>
+                                    {{end}}
+                            </ul>
+                        {{if .FileContents}}
+                        <input type="submit"value="Delete Selected Files From: ({{.CurrentFolder}})" />
+                        {{end}}
+                        </form>
 
-                    <div>
-                        <form enctype="multipart/form-data" action="http://localhost:8080/upload" method="post">
+                        <form enctype="multipart/form-data" action="http://localhost:8080/upload/" method="post">
+                            <br>
                             <div id="test">
                                 <input type="file" name="uploadfile"/>
                             </div>
-                            <input type="hidden" name="token" value="{{.}}"/>
+                            <input type="hidden" name="token" value="{{.CurrentFolder}}"/>
                             <br>
-                            <input type="submit" value="Upload File" />
+                            <input type="submit"value="Upload to Current Folder ({{.CurrentFolder}})" />
                         </form>
                     </div>
             </div>
