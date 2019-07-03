@@ -178,6 +178,19 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	if len(s) == 0 || len(f) == 0 {
+		s3.New(s1).PutObject(&s3.PutObjectInput{
+			Bucket:               aws.String("bucket-upload-roy1"),
+			Key:                  aws.String(filePath + "/"),
+			ACL:                  aws.String("public-read"), // could be private if you want it to be access by only authorized users
+			Body:                 bytes.NewReader([]byte("")),
+			ContentLength:        aws.Int64(int64(0)),
+			ContentType:          aws.String("inode/directory"),
+			ContentDisposition:   aws.String("attachment"),
+			ServerSideEncryption: aws.String("AES256"),
+			StorageClass:         aws.String("INTELLIGENT_TIERING"),
+		})
+	}
 	if filePath == "" {
 		filePath = "/"
 	}
