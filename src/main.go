@@ -64,6 +64,7 @@ func UploadFileToS3(s *session.Session, file multipart.File, fileHeader *multipa
 		ServerSideEncryption: aws.String("AES256"),
 		StorageClass:         aws.String("INTELLIGENT_TIERING"),
 	})
+	fmt.Println("FILENAME: ", aws.String(tempFileName))
 	if err != nil {
 		return "", err
 	}

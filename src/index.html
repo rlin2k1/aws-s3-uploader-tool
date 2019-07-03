@@ -1,7 +1,7 @@
 <html>
     <head>
             <title>Poshmark Upload File</title>
-            <link rel="shortcut icon" type="image/png" href="/image_assets/favicon.png"/>
+            <link rel="shortcut icon" type="image/jpg" href="/image_assets/favicon.png"/>
             <link rel="stylesheet" type="text/css" href="/src/index.css" media="screen" />
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     </head>
@@ -18,8 +18,7 @@
                     <br>
                     <div>
                         Go To: <button onclick="window.location.href = '/';" class="btn"><i class="fa fa-folder"></i>  ROOT</button>
-                        <br>
-                        <br>
+                         
                         {{$number := .FolderContents}}
                         {{$letter := .CurrentFolder}}
                         {{if or .FolderContents .FileContents}}
@@ -39,8 +38,8 @@
                             <ul>
                                     {{$altoids := .FileContents}}
                                     {{ range $key := $altoids}}
-                                    <input type="checkbox" id="coding" name="int" value="{{$letter}}{{$key}}">
-                                    <label for="coding">{{$key}}</label>
+                                    <input type="checkbox" id="{{$key}}" name="int" value="{{$letter}}{{$key}}">
+                                    <label for="{{$key}}">{{$key}}</label>
                                     <br>
                                     {{end}}
                             </ul>
