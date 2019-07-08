@@ -22,7 +22,7 @@
                         {{$number := .FolderContents}}
                         {{$letter := .CurrentFolder}}
                         {{if or .FolderContents .FileContents}}
-                        <div>Showing Folder Contents For {{.CurrentFolder}}:</div>
+                        <div>Showing Folder Contents For <strong>{{.CurrentFolder}}</strong>:</div>
                         {{end}}
                         {{if and (not .FolderContents) (not .FileContents)}}
                         <div>Folder {{.CurrentFolder}} is Empty!</div>
