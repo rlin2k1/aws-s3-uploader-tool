@@ -18,6 +18,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -33,6 +34,7 @@ var validPath = regexp.MustCompile("/.(gif|jpg|jpeg|tiff|png|txt|doc|docx)$/") /
 
 type Page struct {
 	CurrentFolder  string
+	HostName       string
 	FolderContents []string
 	FileContents   []string
 }
@@ -91,7 +93,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		// create an AWS session which can be
 		// reused if we're uploading many files
 		s, err := session.NewSession(&aws.Config{
-			Region: aws.String("us-east-2"),
+			Region: aws.String("us-east-1"),
 			Credentials: credentials.NewStaticCredentials(
 				"AKIA2EJR7MOTGUC644N2",                     // id
 				"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
@@ -99,7 +101,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		svc := s3.New(s)
 
-		bucket := "bucket-upload-roy1"
+		bucket := "static-poshmark-dev"
 
 		resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
 		if err != nil {
@@ -138,11 +140,12 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
+	hostName, err := os.Hostname()
 	filePath := r.URL.Path[len("/"):]
 	s := []string{}
 	f := []string{}
 	s1, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-2"),
+		Region: aws.String("us-east-1"),
 		Credentials: credentials.NewStaticCredentials(
 			"AKIA2EJR7MOTGUC644N2",                     // id
 			"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
@@ -150,7 +153,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	svc := s3.New(s1)
 
-	bucket := "bucket-upload-roy1"
+	bucket := "static-poshmark-dev"
 
 	resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
 	if err != nil {
@@ -195,7 +198,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		filePath = "/"
 	}
 	t, _ := template.ParseFiles("src/index.html")
-	page := &Page{CurrentFolder: filePath, FolderContents: s, FileContents: f}
+	page := &Page{CurrentFolder: filePath, HostName: hostName, FolderContents: s, FileContents: f}
 	t.Execute(w, page)
 }
 
@@ -203,7 +206,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(32 << 20)
 	fmt.Println("method:", r.Method)
 	s, _ := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-2"),
+		Region: aws.String("us-east-1"),
 		Credentials: credentials.NewStaticCredentials(
 			"AKIA2EJR7MOTGUC644N2",                     // id
 			"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
@@ -211,7 +214,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	svc := s3.New(s)
 
-	bucket := "bucket-upload-roy1"
+	bucket := "static-poshmark-dev"
 	list := r.Form["int"]
 	fmt.Println(list)
 	// create a unique file name for the file
