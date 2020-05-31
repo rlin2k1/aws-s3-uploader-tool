@@ -1,6 +1,6 @@
 /* main.go
-Web Application to Provide an easy and simple way for Poshmark Marketing Team to
-upload images to Amazon S3 for marketing campaigns.
+Web Application to Provide an easy and simple way to
+upload images to Amazon S3 buckets.
 
 Author(s):
 	Roy Lin
@@ -95,13 +95,13 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		s, err := session.NewSession(&aws.Config{
 			Region: aws.String("us-east-1"),
 			Credentials: credentials.NewStaticCredentials(
-				"AKIA2EJR7MOTGUC644N2",                     // id
-				"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
+				"id-credentials",                     // id
+				"secret-credentials", // secret
 				""), // token can be left blank for now
 		})
 		svc := s3.New(s)
 
-		bucket := "static-poshmark-dev"
+		bucket := "test-bucket-name"
 
 		resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
 		if err != nil {
@@ -147,13 +147,13 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	s1, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 		Credentials: credentials.NewStaticCredentials(
-			"AKIA2EJR7MOTGUC644N2",                     // id
-			"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
+			"id-credentials",                     // id
+			"secret-credentials", // secret
 			""), // token can be left blank for now
 	})
 	svc := s3.New(s1)
 
-	bucket := "static-poshmark-dev"
+	bucket := "test-bucket-name"
 
 	resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
 	if err != nil {
@@ -208,13 +208,13 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	s, _ := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 		Credentials: credentials.NewStaticCredentials(
-			"AKIA2EJR7MOTGUC644N2",                     // id
-			"p0M/OWDdydpwg41yXPm3ztZSRYSXKRM++C8rxz1h", // secret
+			"id-credentials",                     // id
+			"secret-credentials", // secret
 			""), // token can be left blank for now
 	})
 	svc := s3.New(s)
 
-	bucket := "static-poshmark-dev"
+	bucket := "test-bucket-name"
 	list := r.Form["int"]
 	fmt.Println(list)
 	// create a unique file name for the file
